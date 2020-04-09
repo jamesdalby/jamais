@@ -1,0 +1,24 @@
+name: aisdisplay
+description: Display AIS data from NMEA VDM feed
+version: 0.0.1
+
+environment:
+  sdk: ">=2.1.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences:
+  cupertino_icons: ^0.1.2
+  scoped_model:
+  nmea:
+    path: ../nmea
+  aisdecode:
+    path: ../aisdecode
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

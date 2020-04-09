@@ -1,0 +1,13 @@
+
+- stale data: no update for some time, remove/grey them?
+- warning colourings/determine criteria
+- boats that have passed (tcpa negative)
+- static boats - COG null
+- moving boats offering no COG (drift?) - COG null but sog not null, anchored? moored?
+- full display of stashed AIS data
+- storage of AIS info/caching
+- graphic view
+- preferences page to set connection and warning thresholds
+- lazy scrolling
+- top tips from opencpn
+- tap to watch/colour
