@@ -1,13 +1,13 @@
-
 - stale data: no update for some time, remove/grey them?
 - warning colourings/determine criteria
 - boats that have passed (tcpa negative)
 - static boats - COG null
+- status bar to show source/signal status
 - moving boats offering no COG (drift?) - COG null but sog not null, anchored? moored?
-- full display of stashed AIS data
-- storage of AIS info/caching
-- graphic view
+- full display of stashed AIS data: AIDDetail class, prettify
+- persist basic boat data using SQLLite?
 - preferences page to set connection and warning thresholds
-- lazy scrolling
-- top tips from opencpn
-- tap to watch/colour
+-- draw on opencpn
+- bounding box wrong for label position is wrong - should ignore speed vector; work out multiplication stuff.
+
+- dummy nmea source?
