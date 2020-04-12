@@ -457,11 +457,11 @@ class AISPainter extends CustomPainter {
        ? _mark(canvasSize)
        : _boat(canvasSize, them.sog);
 
-    Matrix4 c = Matrix4
+    /*Matrix4 c = Matrix4
         .rotationZ(rad(us.cog-them.cog))
         ..multiply(Matrix4.translationValues(xdst*sx, ydst*sx, 0))
         ..multiply(flip)
-        ..multiply(xlate);
+        ..multiply(xlate);*/
 
     target = target/*.transform(c.storage);*/
         .transform(Matrix4.rotationZ(rad(us.cog-them.cog)).storage)
