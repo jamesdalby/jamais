@@ -10,6 +10,8 @@ import 'package:aisdecode/geom.dart' as geom;
 
 import 'dart:ui' as ui show TextStyle;
 
+import 'package:vector_math/vector_math_64.dart' hide Colors;
+
 void main() async {
   runApp(AISDisplay());
 
@@ -270,10 +272,12 @@ class _AISState extends State<AISPage> {
                       MaterialPageRoute(
                           builder: (BuildContext context) => AISSettings(_prefs))
                   ).then((var s) {
-                    _prefs.maxTargets = s.maxTargets;
-                    _prefs.cpa = s.cpa;
-                    _prefs.tcpa = s.tcpa;
-                    _prefs.hideDivergent = s.hideDivergent;
+                    if (s != null) {
+                      _prefs.maxTargets = s.maxTargets;
+                      _prefs.cpa = s.cpa;
+                      _prefs.tcpa = s.tcpa;
+                      _prefs.hideDivergent = s.hideDivergent;
+                    }
                   });
                 }),
             ListTile(
@@ -390,10 +394,11 @@ class AISPainter extends CustomPainter {
     usPaint.style = PaintingStyle.stroke;
 
     themPaint.style = PaintingStyle.stroke;
-    themPaint.color = Colors.deepOrange;
+    themPaint.color = Colors.green;
 
     themAlertPaint.style = PaintingStyle.stroke;
     themAlertPaint.color = Colors.redAccent;
+    themAlertPaint.strokeWidth = 2;
   }
 
   static final _boatSize = 30;  // means boat will fill 1/20th of the screen
@@ -427,7 +432,7 @@ class AISPainter extends CustomPainter {
 
   // range indicates how wide our screen is in nautical miles
   // used to scale relative boat position
-  static Path _target(PCS us, AISInfo them, double range, Size canvasSize, Matrix4 flip, Matrix4 xlate) {
+  static Matrix4 _transformation(PCS us, AISInfo them, double range, Size canvasSize, Matrix4 toScreen) {
     // need to check cog available, different return if not - blank?
 
     double w = canvasSize.width;
@@ -446,32 +451,25 @@ class AISPainter extends CustomPainter {
     double maxRange = (xdim*xdim) + (ydim*ydim);
     if (maxRange < (dst*dst)) { return null; }
 
-    // this should use hdg, not cog
+    // this should use hdg, not cog, ideally
     final double brg = rad(-us.bearingTo(them.pcs)+us.cog+90); // relative bearing in radians, cartesian
     final double xdst = dst*cos(brg);
     final double ydst = dst*sin(brg);
 
-    // If there's a Type21 record, it's a mark, else a boat:
+    return
+      Matrix4.copy(toScreen)
+      ..multiply(Matrix4.translationValues(xdst*sx, ydst*sx, 0))
+      ..multiply(Matrix4.rotationZ(rad(us.cog-them.cog)));
+
+
+  }
+
+  // If there's a Type21 record, it's a mark, else a boat:
+  static Path _getTargetPath(AISInfo them, Size canvasSize) {
     bool t21 = (them?._aisMap[21]) != null;
     Path target = t21
        ? _mark(canvasSize)
        : _boat(canvasSize, them.sog);
-
-    /*Matrix4 c = Matrix4
-        .rotationZ(rad(us.cog-them.cog))
-        ..multiply(Matrix4.translationValues(xdst*sx, ydst*sx, 0))
-        ..multiply(flip)
-        ..multiply(xlate);*/
-
-    target = target/*.transform(c.storage);*/
-        .transform(Matrix4.rotationZ(rad(us.cog-them.cog)).storage)
-        .transform(Matrix4.translationValues(xdst*sx, ydst*sx, 0).storage)
-        .transform(flip.storage)
-        .transform(xlate.storage);
-
-
-
-
     return target;
   }
 
@@ -482,53 +480,57 @@ class AISPainter extends CustomPainter {
     positions.clear();
 
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    //Matrix4 c2s = Matrix4.translationValues(size.width/2, 2*size.height/3, 0)..scale(1, -1, 0);
 
-    Matrix4 flip = Matrix4.diagonal3Values(1, -1, 1);
-    Matrix4 xlate = Matrix4.translationValues(size.width/2, 2*size.height/3, 0);
-
-
-
+    final Matrix4 toScreen = Matrix4.translationValues(size.width/2, 2*size.height/3, 0);
+    toScreen.multiply(Matrix4.diagonal3Values(1, -1, 1)); // flip
 
     // 0,0 is top left corner, we want us to be at size.h/3, size.w/2
 
     // paint us:
 
-    Path we = _boat(size, us?.sog??0).transform(flip.storage).transform(xlate.storage);
-    Rect r = we.getBounds();
+    Path we = _boat(size, us?.sog??0).transform(toScreen.storage);
 
+    Vector4 o = Vector4(0,0,0,1)..applyMatrix4(toScreen);
 
-    label("US", canvas, r);
+    label("US", canvas, o.x, o.y);
 
-    canvas.drawPath(we, themPaint);
-    
+    canvas.drawPath(we, usPaint);
+
     // and each of them
-    them.forEach((b)=>tgt(canvas, usPaint, b, size, flip, xlate));
+    them.forEach((b)=>tgt(canvas, b, size, toScreen));
 
   }
 
-  void label(String text, Canvas canvas, Rect r) {
-    
+  void label(String text, Canvas canvas, double x, double y) {
+
     final ParagraphBuilder pb = ParagraphBuilder(ParagraphStyle(maxLines: 1));
     ui.TextStyle style = ui.TextStyle(color:Colors.black);
     pb.pushStyle(style);
     pb.addText(text);
     final Paragraph pa =  pb.build();
     pa.layout(ParagraphConstraints(width: 150));
-    canvas.drawParagraph(pa, r.centerRight);
+    canvas.drawParagraph(pa, Offset(x, y));
   }
 
-  void tgt(Canvas c, Paint p, AISInfo b, Size size, Matrix4 flip, Matrix4 xlate) {
-    Path t = _target(us, b, _range, size, flip, xlate);
-    if (t == null) { // out of range
+  void tgt(Canvas c, AISInfo b, Size size, Matrix4 toScreen) {
+    Matrix4 tr = _transformation(us, b, _range, size, toScreen);
+    if (tr == null) { // out of range
       return;
     }
 
-    c.drawPath(t, p);
+    Path ta = _getTargetPath(b, size).transform(tr.storage);
+
+    Vector4 origin = tr.transform(Vector4(0, 0, 0, 1));
+    double t = tcpa(us, b.pcs);
+    if (t >=0 && t < .5 && cpa(us, b.pcs, t) < 1) {
+      c.drawPath(ta, themAlertPaint);
+    } else {
+      c.drawPath(ta, themPaint);
+    }
     String sl = b.ship??(b.mmsi.toString());
     // sl += ' '+us.bearingTo(b.pcs).toStringAsFixed(0);
-    Rect bounds = t.getBounds();
-    label(sl, c, bounds);
+    Rect bounds = ta.getBounds();
+    label(sl, c, origin.x, origin.y);
     positions[bounds] = b.ais;
   }
 

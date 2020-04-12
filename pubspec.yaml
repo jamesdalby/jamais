@@ -15,6 +15,7 @@ dependencies:
     path: ../nmea
   aisdecode:
     path: ../aisdecode
+  vector_math:
 
 dev_dependencies:
   flutter_test:
