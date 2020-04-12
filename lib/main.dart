@@ -20,7 +20,7 @@ void main() async {
 class AISDisplay extends StatelessWidget {
   @override Widget build(BuildContext context) {
     return MaterialApp(
-          title: 'AIS Display',
+          title: 'JamAIS',
           theme: ThemeData(primarySwatch: Colors.blue),
           home: AISPage(),
 
@@ -141,19 +141,18 @@ class AISSharedPreferences {
 
   static Future<AISSharedPreferences> instance() async {
     _prefs = await SharedPreferences.getInstance();
-      return AISSharedPreferences(
-          _prefs.get(aisHost) ?? 'localhost',
-          _prefs.get(aisPort) ?? 10110,
-          _prefs.get(aisCPA),
-          _prefs.get(aisTCPA),
-          _prefs.get(aisMaxTargets) ?? 20,
-          _prefs.get(aisHideDivergent) ?? true
-      );
+    return AISSharedPreferences(
+        _prefs.get(aisHost) ?? 'localhost',
+        _prefs.get(aisPort) ?? 10110,
+        _prefs.get(aisCPA),
+        _prefs.get(aisTCPA),
+        _prefs.get(aisMaxTargets) ?? 20,
+        _prefs.get(aisHideDivergent) ?? true
+    );
 
   }
 
-  AISSharedPreferences(this._host, this._port, this._cpa, this._tcpa,
-      this._maxTargets, this._hideDivergent);
+  AISSharedPreferences(this._host, this._port, this._cpa, this._tcpa, this._maxTargets, this._hideDivergent);
 
    T _set<T>(String s, Future<bool> Function(String key, T value) setter, T h) {
     setter(s, h);
@@ -175,6 +174,7 @@ class _AISState extends State<AISPage> {
   bool showList = true;
   
   _AISState() {
+    // be careful, _prefs might take time to become established
     AISSharedPreferences.instance().then((p) {
       _prefs = p;
       _aisHandler = MyAISHandler(_prefs.host, _prefs.port, this);
@@ -396,12 +396,12 @@ class AISPainter extends CustomPainter {
     themPaint.style = PaintingStyle.stroke;
     themPaint.color = Colors.green;
 
-    themAlertPaint.style = PaintingStyle.stroke;
+    themAlertPaint.style = PaintingStyle.stroke; // fill for dramatic effect?
     themAlertPaint.color = Colors.redAccent;
     themAlertPaint.strokeWidth = 2;
   }
 
-  static final _boatSize = 30;  // means boat will fill 1/20th of the screen
+  static final _boatSize = 30;  // means boat will fill 1/30th of the screen, seems about right visually
   static Path _boat(final Size canvasSize, double sog) {
     // double w = canvasSize.width/_boatSize;
     double h = canvasSize.height/_boatSize;
@@ -460,8 +460,6 @@ class AISPainter extends CustomPainter {
       Matrix4.copy(toScreen)
       ..multiply(Matrix4.translationValues(xdst*sx, ydst*sx, 0))
       ..multiply(Matrix4.rotationZ(rad(us.cog-them.cog)));
-
-
   }
 
   // If there's a Type21 record, it's a mark, else a boat:
@@ -498,11 +496,9 @@ class AISPainter extends CustomPainter {
 
     // and each of them
     them.forEach((b)=>tgt(canvas, b, size, toScreen));
-
   }
 
   void label(String text, Canvas canvas, double x, double y) {
-
     final ParagraphBuilder pb = ParagraphBuilder(ParagraphStyle(maxLines: 1));
     ui.TextStyle style = ui.TextStyle(color:Colors.black);
     pb.pushStyle(style);
@@ -514,7 +510,8 @@ class AISPainter extends CustomPainter {
 
   void tgt(Canvas c, AISInfo b, Size size, Matrix4 toScreen) {
     Matrix4 tr = _transformation(us, b, _range, size, toScreen);
-    if (tr == null) { // out of range
+    if (tr == null) {
+      // out of range
       return;
     }
 
