@@ -75,6 +75,7 @@ class AISInfo {
   double _t;
   double _d;
   final PCS _them;
+  String get pos => _them.latLon; // "${dms(lon*60, 'N', 'S')} ${dms(lat*60, 'E', 'W')}";
 
   Map<int,AIS> get ais => _aisMap;
 
@@ -245,7 +246,7 @@ class _AISState extends State<AISPage> {
                   DataCell(GestureDetector(
                     onTap:  () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (BuildContext context) => AISDetails([v.ais]))
+                        MaterialPageRoute(builder: (BuildContext context) => AISDetails([v]))
                     ),
                     child: Text(v.ship),
 
@@ -344,7 +345,7 @@ class _AISState extends State<AISPage> {
               final Offset local = (context.findRenderObject() as RenderBox).globalToLocal(tud.globalPosition);
 
               // get any AIS object beneath the tap, this uses the path bounding boxes
-              final List<Map<int,AIS>> details = aisPainter.getItemsAt(local);
+              final List<AISInfo> details = aisPainter.getItemsAt(local);
 
               // nothing? - just return
               if (details == null || details.length == 0) {
@@ -388,14 +389,67 @@ class _AISState extends State<AISPage> {
 }
 
 class AISDetails extends StatelessWidget{
-  final List<Map<int,AIS>> details;
+  final List<AISInfo> details;
+
   AISDetails(this.details);
+  final TextStyle _heading = TextStyle(fontWeight: FontWeight.bold);
 
   @override Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(title: Text('Details')),
-        body: Text(details.toString())
+        body: SingleChildScrollView(
+          child:Table(
+            children: _asRows(details)
+          )
+        )
     );
+  }
+
+  List<TableRow> _asRows(List<AISInfo> a) {
+    List<TableRow> ret = [];
+    for (AISInfo i in a) {
+      ret.add(_tw('Name', Text(i.ship, style: _heading)));
+      ret.add(_tr('MMSI', i.mmsi.toString()));
+      ret.add(_tr('CPA', "${i.d.toStringAsFixed(1)}NM"));
+      ret.add(_tr('TCPA', (i.t*60).toStringAsFixed(0)+"minutes"));
+      ret.add(_tr('Position', i.pos));
+      ret.add(_tr('Range', i.d.toStringAsFixed(1)+"NM"));
+      ret.add(_tr('Bearing', i.bearing.toStringAsFixed(0)+'°'));
+      ret.add(_tr('COG', i.cog.toStringAsFixed(0)+'°'));
+      ret.add(_tr('SOG', i.sog.toStringAsFixed(1)+'kn'));
+
+
+    }
+    return ret;
+  }
+
+  TableRow _tr(String label, String content) {
+    return TableRow(
+
+        children: [
+          Text(label),
+          Text(content)
+        ]
+    );
+  }
+  TableRow _tw(String label, Widget content) {
+    return TableRow(
+
+        decoration: BoxDecoration(
+            color: Colors.grey,
+
+        ),
+        children: [
+          Padding(
+              padding: EdgeInsets.only(top: 5, bottom: 5),
+              child: Text(label)
+          ),
+
+          Padding(
+              padding: EdgeInsets.only(top: 5, bottom: 5),
+              child: content
+          ),
+        ]);
   }
 
 }
@@ -492,7 +546,7 @@ class AISPainter extends CustomPainter {
     return target;
   }
 
-  Map<Rect, Map<int,AIS>> positions = Map();
+  Map<Rect, AISInfo> positions = Map();
 
   @override
   void paint(final Canvas canvas, final Size size) {
@@ -549,7 +603,7 @@ class AISPainter extends CustomPainter {
     // sl += ' '+us.bearingTo(b.pcs).toStringAsFixed(0);
     Rect bounds = ta.getBounds();
     label(sl, c, origin.x, origin.y);
-    positions[bounds] = b.ais;
+    positions[bounds] = b;
   }
 
   @override
@@ -557,7 +611,7 @@ class AISPainter extends CustomPainter {
     return true; // oldDelegate != this;
   }
 
-  List<Map<int,AIS>> getItemsAt(Offset globalPosition) {
+  List<AISInfo> getItemsAt(Offset globalPosition) {
     return positions
         .entries
         .where((e) => e.key.contains(globalPosition))
