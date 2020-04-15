@@ -16,6 +16,7 @@ dependencies:
   aisdecode:
     path: ../aisdecode
   vector_math:
+  sqflite:
 
 dev_dependencies:
   flutter_test:

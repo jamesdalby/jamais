@@ -33,6 +33,8 @@ import 'dart:ui' as ui show TextStyle;
 
 import 'package:vector_math/vector_math_64.dart' hide Colors;
 
+import 'persist.dart';
+
 void main() async {
   runApp(AISDisplay());
 
@@ -194,6 +196,7 @@ class _AISState extends State<AISPage> {
   AISSharedPreferences _prefs;
   MyAISHandler _aisHandler;
   bool showList = true;
+  Persist _persist;
   
   _AISState() {
     // be careful, _prefs might take time to become established
@@ -201,6 +204,10 @@ class _AISState extends State<AISPage> {
       _prefs = p;
       _aisHandler = MyAISHandler(_prefs.host, _prefs.port, this);
      _aisHandler.run();
+    });
+
+    Persist.openDB().then((db) {
+      _persist = Persist(db);
     });
   }
 
