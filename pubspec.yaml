@@ -12,9 +12,11 @@ dependencies:
   cupertino_icons: ^0.1.2
   scoped_model:
   nmea:
-    path: ../nmea
-  aisdecode:
-    path: ../aisdecode
+    git:
+      url: https://github.com/jamesdalby/nmea.git
+  ais:
+    git:
+      url: https://github.com/jamesdalby/ais.git
   vector_math:
   sqflite:
 

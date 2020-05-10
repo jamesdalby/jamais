@@ -43,16 +43,4 @@ class Persist {
   }
 }
 
-/*
 
-void main() {
-  Persist.openDB().then((db) async {
-    Persist p = Persist(db);
-
-    p.replace(1234, "OneTwoThreeFour");
-    p.replace(56, "FiveSix");
-
-    Map<int, String> m = await p.names();
-    print(m.toString());
-  });
-}*/

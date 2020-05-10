@@ -26,8 +26,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:aisdecode/ais.dart';
-import 'package:aisdecode/geom.dart' as geom;
+import 'package:ais/ais.dart';
+import 'package:ais/geom.dart' as geom;
 
 import 'dart:ui' as ui show TextStyle;
 
@@ -59,6 +59,9 @@ class AISPage extends StatefulWidget {
 class AISInfo {
   final int mmsi;
   final String _ship;
+
+  // raw ship name, might be null
+  String get shipname => _ship;
 
   String get ship => _ship??"[$mmsi]";
   double get lat => _them.lat;
@@ -197,29 +200,44 @@ class _AISState extends State<AISPage> {
   MyAISHandler _aisHandler;
   bool showList = true;
   Persist _persist;
-  
-  _AISState() {
-    // be careful, _prefs might take time to become established
-    AISSharedPreferences.instance().then((p) {
+
+  Future<bool> _initialised;
+
+  Map<int, String> _names;
+
+  @override initState() {
+    super.initState();
+
+    _initialised = AISSharedPreferences.instance().then((p) async {
       _prefs = p;
       _aisHandler = MyAISHandler(_prefs.host, _prefs.port, this);
-     _aisHandler.run();
-    });
-
-    Persist.openDB().then((db) {
-      _persist = Persist(db);
+      var _db = await Persist.openDB();
+      _persist = Persist(_db); // use later
+      _names = await _persist.names();
+      _aisHandler.run();
+      return true;
     });
   }
+  
+  _AISState();
 
   void revise(PCS us) {
-    them.forEach((f)=>f._revise(us));
-    setState(()=>{});
+    setState(() => them.forEach((f)=>f._revise(us)));
   }
 
   void add(AISInfo info) {
     setState(() {
       them.remove(info);
       them.add(info);
+
+      if (_names.containsKey(info.mmsi)) {
+        if (info.shipname != null && _names[info.mmsi] != info.shipname) {
+          _persist.replace(info.mmsi, info.shipname);
+          _names[info.mmsi] = info.shipname;
+        }
+      } else {
+        _names[info.mmsi] = info.ship;
+      }
     });
   }
 
@@ -255,7 +273,7 @@ class _AISState extends State<AISPage> {
                         context,
                         MaterialPageRoute(builder: (BuildContext context) => AISDetails([v]))
                     ),
-                    child: Text(v.ship),
+                    child: Text(_names[v.mmsi]),
 
                   )),
                   DataCell(Text((v.range?.toStringAsFixed(1)??'') + "\n" + (v.bearing.toString()??''), textAlign: TextAlign.right)),
@@ -325,10 +343,17 @@ class _AISState extends State<AISPage> {
             )
 
           ])),
-      body: showList ? buildList() : buildGraphic()
+      body: FutureBuilder(future: _initialised, builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          return showList ? buildList() : buildGraphic();
+        } else if (snapshot.hasError) {
+          return Text("Error");
+        } else {
+          return Text("Initialising");
+        }
+      })
     );
   }
-
 
   double scale = 1;
   double scale2 = 1;
