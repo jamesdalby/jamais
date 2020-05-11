@@ -1,6 +1,6 @@
 name: aisdisplay
 description: Display AIS data from NMEA VDM feed
-version: 0.0.1
+version: 0.0.2
 
 environment:
   sdk: ">=2.1.0 <3.0.0"
