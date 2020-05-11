@@ -28,6 +28,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ais/ais.dart';
 import 'package:ais/geom.dart' as geom;
+import 'package:sqflite_common/sqlite_api.dart';
 
 import 'dart:ui' as ui show TextStyle;
 
@@ -60,7 +61,7 @@ class AISInfo {
   final int mmsi;
   final String _ship;
 
-  // raw ship name, might be null
+  // raw ship name, might be null, for alternative built from mmsi, use [ship]
   String get shipname => _ship;
 
   String get ship => _ship??"[$mmsi]";
@@ -87,6 +88,7 @@ class AISInfo {
   final Map<int,AIS> _aisMap;
 
   AISInfo(this.mmsi, this._ship, PCS us, this._them, this._aisMap) {
+    // print("AISInfo ship is ${_ship} mmsi is ${mmsi}");
     _revise(us);
   }
 
@@ -106,10 +108,13 @@ class AISInfo {
 
 class MyAISHandler extends AISHandler {
   _AISState _state;
-  MyAISHandler(String host, int port, this._state) : super(host, port);
+  Persist _persist;
+  Map<int, String> _names;
+
+  MyAISHandler(String host, int port, this._state, [ this._persist, this._names ]) : super(host, port);
 
   @override
-  void they(PCS us, PCS them, int mmsi) {
+  void they(PCS us, PCS them, int mmsi) async {
     _state.add(
         AISInfo(mmsi, name(mmsi), us, them, getMostRecentMessages(mmsi))
     );
@@ -128,6 +133,21 @@ class MyAISHandler extends AISHandler {
     if (_needsRecalc(_usCalc, us)) {
       _state.revise(us);
       _usCalc = us;
+    }
+  }
+
+  String name(int mmsi) {
+    if (_names == null || !_names.containsKey(mmsi)) { return "[$mmsi]"; }
+    return _names[mmsi]??"[$mmsi]";
+  }
+
+  @override
+  void nameFor(final int mmsi, final String name) async {
+    if (_persist == null) { return; }
+    if (_names == null) { _names = await _persist.names(); }
+    if (_names != null && name != null && name != _names[mmsi]) {
+      _names[mmsi] = name;
+      _persist.replace(mmsi, name);
     }
   }
 
@@ -203,22 +223,26 @@ class _AISState extends State<AISPage> {
 
   Future<bool> _initialised;
 
-  Map<int, String> _names;
+  Database _db;
 
   @override initState() {
     super.initState();
 
     _initialised = AISSharedPreferences.instance().then((p) async {
       _prefs = p;
-      _aisHandler = MyAISHandler(_prefs.host, _prefs.port, this);
-      var _db = await Persist.openDB();
-      _persist = Persist(_db); // use later
-      _names = await _persist.names();
+      _db = await Persist.openDB();
+      _persist = Persist(_db);
+      _aisHandler = MyAISHandler(_prefs.host, _prefs.port, this, _persist, await _persist.names());
       _aisHandler.run();
       return true;
     });
   }
-  
+
+  @override void dispose() {
+    _db.close();
+    super.dispose();
+  }
+
   _AISState();
 
   void revise(PCS us) {
@@ -229,15 +253,6 @@ class _AISState extends State<AISPage> {
     setState(() {
       them.remove(info);
       them.add(info);
-
-      if (_names.containsKey(info.mmsi)) {
-        if (info.shipname != null && _names[info.mmsi] != info.shipname) {
-          _persist.replace(info.mmsi, info.shipname);
-          _names[info.mmsi] = info.shipname;
-        }
-      } else {
-        _names[info.mmsi] = info.ship;
-      }
     });
   }
 
@@ -273,7 +288,7 @@ class _AISState extends State<AISPage> {
                         context,
                         MaterialPageRoute(builder: (BuildContext context) => AISDetails([v]))
                     ),
-                    child: Text(_names[v.mmsi]),
+                    child: Text(v.ship),
 
                   )),
                   DataCell(Text((v.range?.toStringAsFixed(1)??'') + "\n" + (v.bearing.toString()??''), textAlign: TextAlign.right)),
@@ -631,7 +646,7 @@ class AISPainter extends CustomPainter {
     } else {
       c.drawPath(ta, themPaint);
     }
-    String sl = b.ship??(b.mmsi.toString());
+    String sl = b.ship;
     // sl += ' '+us.bearingTo(b.pcs).toStringAsFixed(0);
     Rect bounds = ta.getBounds();
     label(sl, c, origin.x, origin.y);
