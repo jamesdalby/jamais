@@ -19,6 +19,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+import 'dart:async';
 import 'dart:collection';
 import 'dart:math';
 import 'dart:ui';
@@ -35,6 +36,8 @@ import 'dart:ui' as ui show TextStyle;
 import 'package:vector_math/vector_math_64.dart' hide Colors;
 
 import 'persist.dart';
+
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 void main() async {
   runApp(AISDisplay());
@@ -225,6 +228,8 @@ class _AISState extends State<AISPage> {
 
   Database _db;
 
+  final Completer<GoogleMapController> _controller = Completer();
+
   @override initState() {
     super.initState();
 
@@ -276,7 +281,7 @@ class _AISState extends State<AISPage> {
 
   List<DataRow> _themCells() {
     List<AISInfo> l = them.toList();
-    l.sort((a,b)=>a.d.compareTo(b.d));
+    l.sort((a,b)=>a?.d?.compareTo(b?.d??0)??0);
     return l
         .where(_show)
         .take(_prefs?.maxTargets??10)
@@ -302,6 +307,8 @@ class _AISState extends State<AISPage> {
   }
 
   @override Widget build(BuildContext context) {
+
+    _moveMap();
     return Scaffold(
       appBar: AppBar(
         title: Text('AIS'),
@@ -405,9 +412,20 @@ class _AISState extends State<AISPage> {
                   MaterialPageRoute(builder: (BuildContext context) => AISDetails(details))
               );
               },
-            child: CustomPaint(
-              size: constraints.biggest,
-              painter: aisPainter
+            child: Stack(children: [
+              GoogleMap(
+                  initialCameraPosition: _camPos(),
+                  onMapCreated: (GoogleMapController controller) => _controller.complete(controller),
+                  rotateGesturesEnabled: false,
+                  zoomControlsEnabled: false,
+                  zoomGesturesEnabled: false,
+                  scrollGesturesEnabled: false,
+              ),
+              CustomPaint(
+                  size: constraints.biggest,
+                  painter: aisPainter
+              )
+            ]
             )
         );
       }
@@ -431,6 +449,21 @@ class _AISState extends State<AISPage> {
               rows: _themCells()
       ),
     );
+  }
+
+  CameraPosition _camPos() {
+    double w = MediaQuery.of(context).size.width;
+    return new CameraPosition(
+      target: LatLng(_aisHandler._usCalc.lat, _aisHandler._usCalc.lon), // XXX needs to be offset to 1/3 2/3 of screen (not centre)
+      tilt: 0,
+      bearing: _aisHandler._usCalc.cog,
+      zoom: -log(scale*256/w/6880.1)/log(2)
+
+    );
+  }
+
+  void _moveMap() async {
+    (await _controller.future).moveCamera(CameraUpdate.newCameraPosition(_camPos()));
   }
 
 }
@@ -511,6 +544,8 @@ class AISPainter extends CustomPainter {
   final Paint themAlertPaint = Paint();
 
   final double _range;
+
+
   
   AISPainter(this.us, this.them, this.prefs, this._range) {
     usPaint.style = PaintingStyle.stroke;
@@ -597,6 +632,7 @@ class AISPainter extends CustomPainter {
 
   @override
   void paint(final Canvas canvas, final Size size) {
+
     positions.clear();
 
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
@@ -618,6 +654,8 @@ class AISPainter extends CustomPainter {
 
     // and each of them
     them.forEach((b)=>tgt(canvas, b, size, toScreen));
+
+
   }
 
   void label(String text, Canvas canvas, double x, double y) {

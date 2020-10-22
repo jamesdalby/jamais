@@ -19,6 +19,7 @@ dependencies:
       url: https://github.com/jamesdalby/ais.git
   vector_math:
   sqflite:
+  google_maps_flutter: ^0.5.30
 
 dev_dependencies:
   flutter_test:
