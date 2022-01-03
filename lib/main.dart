@@ -825,7 +825,7 @@ class _AISSettingsState extends State<AISSettings>{
               controller: _targetsMax,
               keyboardType: TextInputType.number,
               inputFormatters: <TextInputFormatter>[
-                WhitelistingTextInputFormatter.digitsOnly
+                FilteringTextInputFormatter.digitsOnly
               ],
               decoration: InputDecoration(
                 labelText: "Max targets to display",
@@ -842,7 +842,7 @@ class _AISSettingsState extends State<AISSettings>{
               controller: _maxCPA,
               keyboardType: TextInputType.number,
               inputFormatters: <TextInputFormatter>[
-                WhitelistingTextInputFormatter(RegExp(r'[.0-9]'))
+                FilteringTextInputFormatter.allow(RegExp(r'[.0-9]'))
               ],
               decoration: InputDecoration(
                   labelText: 'Max CPA (nm)',
@@ -863,7 +863,7 @@ class _AISSettingsState extends State<AISSettings>{
               controller: _maxTCPA,
               keyboardType: TextInputType.number,
               inputFormatters: <TextInputFormatter>[
-                WhitelistingTextInputFormatter(RegExp(r'[.0-9]'))
+                FilteringTextInputFormatter.allow(RegExp(r'[.0-9]'))
               ],
               decoration: InputDecoration(
                   labelText: 'Max TCPA (minutes)',
