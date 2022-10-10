@@ -192,7 +192,7 @@ class AISSharedPreferences {
   static Future<AISSharedPreferences> instance() async {
     _prefs = await SharedPreferences.getInstance();
     return AISSharedPreferences(
-        _prefs.get(aisHost) ?? 'localhost',
+        _prefs.get(aisHost) ?? '192.168.76.1',
         _prefs.get(aisPort) ?? 10110,
         _prefs.get(aisCPA),
         _prefs.get(aisTCPA),
@@ -759,7 +759,7 @@ class _CommsSettingsState extends State<CommsSettings> {
 
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16.0),
-                child: RaisedButton(
+                child: ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState.validate() == true) {
                       Navigator.of(context).pop(this);
@@ -900,7 +900,7 @@ class _AISSettingsState extends State<AISSettings>{
             ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: RaisedButton(
+              child: ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState.validate() == true) {
                     Navigator.of(context).pop(this);
