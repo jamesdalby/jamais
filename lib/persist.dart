@@ -23,7 +23,7 @@ class Persist {
     return db;
   }
 
-  void replace(final int mmsi, final String name) async {
+  Future<int> replace(final int mmsi, final String name) async {
     return await _db.transaction((txn) async {
       return await txn.rawInsert(
           'REPLACE INTO boatName(mmsi, name) VALUES(?,?)',
