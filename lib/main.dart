@@ -30,7 +30,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ais/ais.dart';
 import 'package:ais/geom.dart' as geom;
-import 'package:sqflite_common/sqlite_api.dart';
+import 'package:sqflite/sqflite.dart';
 
 import 'dart:ui' as ui show TextStyle;
 
@@ -41,24 +41,26 @@ import 'persist.dart';
 // import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 void main() async {
-  runApp(AISDisplay());
+  runApp(const AISDisplay());
 
 }
 
 class AISDisplay extends StatelessWidget {
+  const AISDisplay({Key? key}) : super(key: key);
+
   @override Widget build(BuildContext context) {
     return MaterialApp(
           title: 'JamAIS',
           theme: ThemeData(primarySwatch: Colors.blue),
-          home: AISPage(),
+          home: const AISPage(),
 
     );
   }
 }
 
 class AISPage extends StatefulWidget {
-  AISPage();
-  @override _AISState createState() => _AISState();
+  const AISPage({Key? key}) : super(key: key);
+  @override State<AISPage> createState() => _AISState();
 }
 
 class AISInfo {
@@ -92,7 +94,7 @@ class AISInfo {
   // Most recent received messages for given mmsi; map key is message type (not mmsi)
   Map<int,AIS>? get ais => _aisMap;
 
-  Map<int,AIS>? _aisMap = {};
+  final Map<int,AIS>? _aisMap;
 
   AISInfo(this.mmsi, this._ship, PCS us, this._them, this._aisMap) {
     // print("AISInfo ship is ${_ship} mmsi is ${mmsi}");
@@ -113,12 +115,12 @@ class AISInfo {
 
 }
 
-class MyAISHandler extends AISHandler {
-  _AISState _state;
-  Persist? _persist;
+class _MyAISHandler extends AISHandler {
+  final _AISState _state;
+  final Persist? _persist;
   Map<int, String>? _names;
 
-  MyAISHandler(String host, int port, this._state, [ this._persist, this._names ]) : super(host, port);
+  _MyAISHandler(String host, int port, this._state, [ this._persist, this._names ]) : super(host, port);
 
   @override
   void they(PCS us, PCS them, int mmsi) async {
@@ -127,7 +129,7 @@ class MyAISHandler extends AISHandler {
     );
   }
 
-  PCS? _usCalc = null;  // the version of _us used for calculations of CPA/TCP
+  PCS? _usCalc;  // the version of _us used for calculations of CPA/TCP
 
   @override
   void we(PCS us) {
@@ -150,7 +152,7 @@ class MyAISHandler extends AISHandler {
     if (_persist == null) { return; }
     if (mmsi == null) { return; }
     if (name == null) { return; }
-    if (_names == null) { _names = await _persist!.names(); }
+    _names ??= await _persist!.names();
     if (name != _names?[mmsi]) {
       _names![mmsi] = name;
       _persist!.replace(mmsi, name);
@@ -227,7 +229,7 @@ class AISSharedPreferences {
 class _AISState extends State<AISPage> {
   Set<AISInfo> them = SplayTreeSet((a,b)=>a.mmsi.compareTo(b.mmsi));
   late AISSharedPreferences _prefs;
-  late MyAISHandler _aisHandler;
+  late _MyAISHandler _aisHandler;
   bool showList = true;
   late Persist _persist;
 
@@ -244,7 +246,7 @@ class _AISState extends State<AISPage> {
       _prefs = p;
       _db = await Persist.openDB();
       _persist = Persist(_db);
-      _aisHandler = MyAISHandler(p.host, p.port, this, _persist, await _persist.names());
+      _aisHandler = _MyAISHandler(p.host, p.port, this, _persist, await _persist.names());
       _aisHandler.run();
       return true;
     });
@@ -258,7 +260,8 @@ class _AISState extends State<AISPage> {
   _AISState();
 
   void revise(PCS us) {
-    setState(() => them.forEach((f)=>f._revise(us)));
+    void action(f) { f._revise(us); }
+    setState(() => them.forEach(action));
   }
 
   void add(AISInfo info) {
@@ -274,9 +277,9 @@ class _AISState extends State<AISPage> {
     int m = (v*60).toInt() % 60;
     int s = (v*3600).toInt() % 60;
     return
-          h.toString().padLeft(2,'0') + ":" +
-          m.toString().padLeft(2,'0') + ":" +
-          s.toString().padLeft(2,'0');
+      "${h.toString().padLeft(2,'0')}:"
+      "${m.toString().padLeft(2,'0')}:"
+      "${s.toString().padLeft(2,'0')}";
   }
 
   bool _show(final AISInfo a) {
@@ -286,7 +289,7 @@ class _AISState extends State<AISPage> {
     return true;
   }
 
-  final NumberFormat deg = new NumberFormat("000");
+  final NumberFormat deg = NumberFormat("000");
 
   List<DataRow> _themCells() {
     List<AISInfo> l = them.toList();
@@ -305,8 +308,8 @@ class _AISState extends State<AISPage> {
                     child: Text(v.ship),
 
                   )),
-                  DataCell(Text((v.range.toStringAsFixed(1)) + "\n" + deg.format(v.bearing), textAlign: TextAlign.right)),
-                  DataCell(Text((v.sog.toStringAsFixed(1)) + "\n" + deg.format(v.cog), textAlign: TextAlign.right)),
+                  DataCell(Text("${v.range.toStringAsFixed(1)}\n${deg.format(v.bearing)}", textAlign: TextAlign.right)),
+                  DataCell(Text("${v.sog.toStringAsFixed(1)}\n${deg.format(v.cog)}", textAlign: TextAlign.right)),
                   DataCell(Text(v.d.toStringAsFixed(1), textAlign: TextAlign.right)),
                   DataCell(Text(_hms(v.t), textAlign: TextAlign.right)),
                   // sog, cog, lat, lon
@@ -320,12 +323,12 @@ class _AISState extends State<AISPage> {
     // _moveMap();
     return Scaffold(
       appBar: AppBar(
-        title: Text('AIS'),
+        title: const Text('AIS'),
       ),
       drawer: Drawer(
           child: ListView(children: <Widget>[
             ListTile(
-                title: Text('Communications'),
+                title: const Text('Communications'),
                 onTap: () async {
                   Navigator.of(context).pop();
                   Navigator.push(
@@ -342,7 +345,7 @@ class _AISState extends State<AISPage> {
                   });
                 }),
             ListTile(
-                title: Text('AIS parameters'),
+                title: const Text('AIS parameters'),
                 onTap: () async {
                   Navigator.of(context).pop();
                   Navigator.push(
@@ -359,14 +362,14 @@ class _AISState extends State<AISPage> {
                   });
                 }),
             ListTile(
-                title: Text('List view'),
+                title: const Text('List view'),
                 onTap: () {
                   showList = true;
                   Navigator.of(context).pop();
                 }
             ),
             ListTile(
-              title: Text('Schematic view'),
+              title: const Text('Schematic view'),
               onTap: () {
                 showList = false;
                 Navigator.of(context).pop();
@@ -378,9 +381,9 @@ class _AISState extends State<AISPage> {
         if (snapshot.hasData) {
           return showList ? buildList() : buildGraphic();
         } else if (snapshot.hasError) {
-          return Text("Error");
+          return const Text("Error");
         } else {
-          return Text("Initialising");
+          return const Text("Initialising");
         }
       })
     );
@@ -413,7 +416,7 @@ class _AISState extends State<AISPage> {
               final List<AISInfo> details = aisPainter.getItemsAt(local);
 
               // nothing? - just return
-              if (details.length == 0) {
+              if (details.isEmpty) {
                 return;
               }
 
@@ -454,7 +457,7 @@ class _AISState extends State<AISPage> {
               horizontalMargin: 3,
               columnSpacing: 3,
 
-              columns: [
+              columns: const [
                 DataColumn(label:Text('ID')),
                 DataColumn(label:Text('Range (nm)\nBearing°', textAlign: TextAlign.right), numeric: true),
                 DataColumn(label:Text('SOG (kn)\nCOG°', textAlign: TextAlign.right), numeric: true),
@@ -491,12 +494,12 @@ class _AISState extends State<AISPage> {
 class AISDetails extends StatelessWidget{
   final List<AISInfo> details;
 
-  AISDetails(this.details);
-  final TextStyle _heading = TextStyle(fontWeight: FontWeight.bold);
+  const AISDetails(this.details, {Key? key}) : super(key: key);
+  final TextStyle _heading = const TextStyle(fontWeight: FontWeight.bold);
 
   @override Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: Text('Details')),
+        appBar: AppBar(title: const Text('Details')),
         body: SingleChildScrollView(
           child:Table(
             children: _asRows(details)
@@ -511,12 +514,12 @@ class AISDetails extends StatelessWidget{
       ret.add(_tw('Name', Text(i.ship, style: _heading)));
       ret.add(_tr('MMSI', i.mmsi.toString()));
       ret.add(_tr('CPA', "${i.d.toStringAsFixed(1)}NM"));
-      ret.add(_tr('TCPA', (i.t*60).toStringAsFixed(0)+"minutes"));
+      ret.add(_tr('TCPA', "${(i.t*60).toStringAsFixed(0)}minutes"));
       ret.add(_tr('Position', i.pos));
-      ret.add(_tr('Range', i.d.toStringAsFixed(1)+"NM"));
-      ret.add(_tr('Bearing', i.bearing.toStringAsFixed(0)+'°'));
-      ret.add(_tr('COG', i.cog.toStringAsFixed(0)+'°'));
-      ret.add(_tr('SOG', i.sog.toStringAsFixed(1)+'kn'));
+      ret.add(_tr('Range', "${i.d.toStringAsFixed(1)}NM"));
+      ret.add(_tr('Bearing', '${deg(i.bearing)}°'));
+      ret.add(_tr('COG', "${deg(i.cog)}°"));
+      ret.add(_tr('SOG', '${i.sog.toStringAsFixed(1)}kn'));
 
 
     }
@@ -535,18 +538,18 @@ class AISDetails extends StatelessWidget{
   TableRow _tw(String label, Widget content) {
     return TableRow(
 
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
             color: Colors.grey,
 
         ),
         children: [
           Padding(
-              padding: EdgeInsets.only(top: 5, bottom: 5),
+              padding: const EdgeInsets.only(top: 5, bottom: 5),
               child: Text(label)
           ),
 
           Padding(
-              padding: EdgeInsets.only(top: 5, bottom: 5),
+              padding: const EdgeInsets.only(top: 5, bottom: 5),
               child: content
           ),
         ]);
@@ -578,7 +581,7 @@ class AISPainter extends CustomPainter {
     themAlertPaint.strokeWidth = 2;
   }
 
-  static final _boatSize = 30;  // means boat will fill 1/30th of the screen, seems about right visually
+  static const _boatSize = 30;  // means boat will fill 1/30th of the screen, seems about right visually
   static Path _boat(final Size canvasSize, double sog) {
     // double w = canvasSize.width/_boatSize;
     double h = canvasSize.height/_boatSize;
@@ -649,7 +652,7 @@ class AISPainter extends CustomPainter {
     return target;
   }
 
-  Map<Rect, AISInfo> positions = Map();
+  final Map<Rect, AISInfo> positions = {};
 
   @override
   void paint(final Canvas canvas, final Size size) {
@@ -674,7 +677,9 @@ class AISPainter extends CustomPainter {
     canvas.drawPath(we, usPaint);
 
     // and each of them
-    them.forEach((b)=>tgt(canvas, b, size, toScreen));
+    for (var b in them) {
+      tgt(canvas, b, size, toScreen);
+    }
 
 
   }
@@ -685,7 +690,7 @@ class AISPainter extends CustomPainter {
     pb.pushStyle(style);
     pb.addText(text);
     final Paragraph pa =  pb.build();
-    pa.layout(ParagraphConstraints(width: 150));
+    pa.layout(const ParagraphConstraints(width: 150));
     canvas.drawParagraph(pa, Offset(x, y));
   }
 
@@ -731,13 +736,17 @@ class AISPainter extends CustomPainter {
 }
 
 class _CommsSettingsState extends State<CommsSettings> {
-  TextEditingController _hc;
-  TextEditingController _pc;
+  final TextEditingController _hc = TextEditingController();
+  final TextEditingController _pc = TextEditingController();
 
-  _CommsSettingsState(final AISSharedPreferences prefs) :
-    _hc = TextEditingController(text: prefs.host),
-    _pc = TextEditingController(text: prefs.port.toString()); // TODO input type restrictions
+  _CommsSettingsState(); // TODO input type restrictions
 
+  @override
+  void initState() {
+    super.initState();
+    _hc.text = widget._prefs.host;
+    _pc.text = widget._prefs.host;
+  }
   String get host => _hc.text..trim();
   int get port => int.parse(_pc.text..trim());
 
@@ -747,7 +756,7 @@ class _CommsSettingsState extends State<CommsSettings> {
   Widget build(BuildContext context) {
     return Scaffold(
 
-        appBar: AppBar(title: Text('Settings')),
+        appBar: AppBar(title: const Text('Settings')),
         body: Form(
           key: _formKey,
           child: Column(
@@ -755,7 +764,7 @@ class _CommsSettingsState extends State<CommsSettings> {
             children: <Widget>[
               TextFormField(
                 controller: _hc,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                     counterText: 'Hostname or IP address',
                     hintText: 'Hostname'
                 ),
@@ -768,7 +777,7 @@ class _CommsSettingsState extends State<CommsSettings> {
               ),
               TextFormField(
                 controller: _pc,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                     counterText: 'Port number',
                     hintText: 'Port number'
                 ),
@@ -789,7 +798,7 @@ class _CommsSettingsState extends State<CommsSettings> {
                       Navigator.of(context).pop(this);
                     }
                   },
-                  child: Text('Submit'),
+                  child: const Text('Submit'),
                 ),
               ),
             ],
@@ -801,24 +810,25 @@ class _CommsSettingsState extends State<CommsSettings> {
 class CommsSettings extends StatefulWidget {
   final AISSharedPreferences _prefs;
 
-  const CommsSettings(this._prefs);
+  const CommsSettings(this._prefs, {Key? key}) : super(key: key);
 
-  @override State<CommsSettings> createState() => _CommsSettingsState(this._prefs);
+  @override State<CommsSettings> createState() => _CommsSettingsState();
+
 }
 
 class AISSettings extends StatefulWidget {
   final AISSharedPreferences _prefs;
-  AISSettings(this._prefs);
+  const AISSettings(this._prefs, {Key? key}) : super(key: key);
 
-  @override State<StatefulWidget> createState() => _AISSettingsState(_prefs);
+  @override State<StatefulWidget> createState() => _AISSettingsState();
 }
 
 class _AISSettingsState extends State<AISSettings>{
   final _formKey = GlobalKey<FormState>();
-  final AISSharedPreferences _prefs;
-  TextEditingController _targetsMax = TextEditingController();
-  TextEditingController _maxCPA = TextEditingController();
-  TextEditingController _maxTCPA = TextEditingController();
+
+  final TextEditingController _targetsMax = TextEditingController();
+  final TextEditingController _maxCPA = TextEditingController();
+  final TextEditingController _maxTCPA = TextEditingController();
   late bool _hideDivergent;
 
   double? get cpa => double.tryParse(_maxCPA.text);
@@ -829,17 +839,17 @@ class _AISSettingsState extends State<AISSettings>{
   @override
   void initState() {
     super.initState();
-    _targetsMax.text = _prefs.maxTargets.toString();
-    _maxCPA.text = (_prefs.cpa ?? '').toString();
-    _maxTCPA.text = (_prefs.tcpa ?? '').toString();
-    _hideDivergent = _prefs.hideDivergent;
+    _targetsMax.text = widget._prefs.maxTargets.toString();
+    _maxCPA.text = (widget._prefs.cpa ?? '').toString();
+    _maxTCPA.text = (widget._prefs.tcpa ?? '').toString();
+    _hideDivergent = widget._prefs.hideDivergent;
   }
 
-  _AISSettingsState(this._prefs);
+  _AISSettingsState();
 
   @override Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Settings')),
+      appBar: AppBar(title: const Text('Settings')),
       body: Form(
         key: _formKey,
         child: Column(
@@ -851,7 +861,7 @@ class _AISSettingsState extends State<AISSettings>{
               inputFormatters: <TextInputFormatter>[
                 FilteringTextInputFormatter.digitsOnly
               ],
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: "Max targets to display",
               ),
               validator: (value) {
@@ -868,12 +878,12 @@ class _AISSettingsState extends State<AISSettings>{
               inputFormatters: <TextInputFormatter>[
                 FilteringTextInputFormatter.allow(RegExp(r'[.\d]'))
               ],
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                   labelText: 'Max CPA (nm)',
                   hintText: r'no limit'
               ),
               validator: (String? value) {
-                if (value == null || value.trim().length == 0) {
+                if (value == null || value.trim().isEmpty) {
                   return null;
                 }
                 double? v = double.tryParse(value);
@@ -889,12 +899,12 @@ class _AISSettingsState extends State<AISSettings>{
               inputFormatters: <TextInputFormatter>[
                 FilteringTextInputFormatter.allow(RegExp(r'[.\d]'))
               ],
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                   labelText: 'Max TCPA (minutes)',
                   hintText: r'no limit'
               ),
               validator: (value) {
-                if (value == null || value.trim().length == 0) {
+                if (value == null || value.trim().isEmpty) {
                   return null;
                 }
                 double? v = double.tryParse(value);
@@ -905,10 +915,13 @@ class _AISSettingsState extends State<AISSettings>{
               },
             ),
             InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Diverging targets',
+              ),
               child: Center(
                 child: Row(
                     children:[
-                      Text('Show'),
+                      const Text('Show'),
                       Switch(
                         value: _hideDivergent,
                         onChanged: (value) {
@@ -916,11 +929,8 @@ class _AISSettingsState extends State<AISSettings>{
                            _hideDivergent = value;
                           });
                         }),
-                      Text('Hide')
+                      const Text('Hide')
                   ])),
-              decoration: InputDecoration(
-                labelText: 'Diverging targets',
-              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -930,7 +940,7 @@ class _AISSettingsState extends State<AISSettings>{
                     Navigator.of(context).pop(this);
                   }
                 },
-                child: Text('Submit'),
+                child: const Text('Submit'),
               ),
             ),
 
