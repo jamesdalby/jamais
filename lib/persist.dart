@@ -1,7 +1,8 @@
+
 import 'package:sqflite/sqflite.dart';
 
 class Persist {
-  Database _db;
+  final Database _db;
 
   Persist(this._db);
 
@@ -23,7 +24,7 @@ class Persist {
     return db;
   }
 
-  void replace(final int mmsi, final String name) async {
+  Future<int> replace(final int mmsi, final String name) async {
     return await _db.transaction((txn) async {
       return await txn.rawInsert(
           'REPLACE INTO boatName(mmsi, name) VALUES(?,?)',
@@ -33,12 +34,12 @@ class Persist {
   }
 
   Future<Map<int,String>> names() {
+        // (l) => Map.fromIterable(
+        // l,
+        // key:     (m)=> m['mmsi'],
+        // value:   (m)=> m['name']
     return _db.rawQuery('SELECT * FROM boatName').then(
-            (l) => Map.fromIterable(
-            l,
-            key:     (m)=> m['mmsi'],
-            value:   (m)=> m['name']
-        )
+            (l) => { for (var m in l) m['mmsi'] as int : m['name'] as String }
     );
   }
 
