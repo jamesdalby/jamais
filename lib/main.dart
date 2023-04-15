@@ -25,7 +25,7 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ais/ais.dart';
@@ -39,6 +39,7 @@ import 'package:vector_math/vector_math_64.dart' hide Colors;
 import 'persist.dart';
 
 // import 'package:google_maps_flutter/google_maps_flutter.dart';
+final NumberFormat _degFmt = NumberFormat("000");
 
 void main() async {
   runApp(const AISDisplay());
@@ -289,7 +290,7 @@ class _AISState extends State<AISPage> {
     return true;
   }
 
-  final NumberFormat deg = NumberFormat("000");
+
 
   List<DataRow> _themCells() {
     List<AISInfo> l = them.toList();
@@ -308,8 +309,8 @@ class _AISState extends State<AISPage> {
                     child: Text(v.ship),
 
                   )),
-                  DataCell(Text("${v.range.toStringAsFixed(1)}\n${deg.format(v.bearing)}", textAlign: TextAlign.right)),
-                  DataCell(Text("${v.sog.toStringAsFixed(1)}\n${deg.format(v.cog)}", textAlign: TextAlign.right)),
+                  DataCell(Text("${v.range.toStringAsFixed(1)}\n${_degFmt.format(v.bearing)}", textAlign: TextAlign.right)),
+                  DataCell(Text("${v.sog.toStringAsFixed(1)}\n${_degFmt.format(v.cog)}", textAlign: TextAlign.right)),
                   DataCell(Text(v.d.toStringAsFixed(1), textAlign: TextAlign.right)),
                   DataCell(Text(_hms(v.t), textAlign: TextAlign.right)),
                   // sog, cog, lat, lon
@@ -338,6 +339,9 @@ class _AISState extends State<AISPage> {
                             _prefs
                           ))
                   ).then((var s) async {
+                    if (s == null) {
+                      return;
+                    }
                     // print("$s ${s.host}:${s.port}");
                     _prefs.host = s.host;
                     _prefs.port = s.port;
@@ -516,9 +520,9 @@ class AISDetails extends StatelessWidget{
       ret.add(_tr('CPA', "${i.d.toStringAsFixed(1)}NM"));
       ret.add(_tr('TCPA', "${(i.t*60).toStringAsFixed(0)}minutes"));
       ret.add(_tr('Position', i.pos));
-      ret.add(_tr('Range', "${i.d.toStringAsFixed(1)}NM"));
-      ret.add(_tr('Bearing', '${deg(i.bearing)}°'));
-      ret.add(_tr('COG', "${deg(i.cog)}°"));
+      ret.add(_tr('Range', "${i.range.toStringAsFixed(1)}NM"));
+      ret.add(_tr('Bearing', '${_degFmt.format(i.bearing)}°'));
+      ret.add(_tr('COG', "${_degFmt.format(i.cog)}°"));
       ret.add(_tr('SOG', '${i.sog.toStringAsFixed(1)}kn'));
 
 
@@ -675,6 +679,22 @@ class AISPainter extends CustomPainter {
     label("US", canvas, o.x, o.y);
 
     canvas.drawPath(we, usPaint);
+    final Offset c = Offset(size.width/2, 2*size.height/3);
+    // draw range rings, intelligence later, for now just .5, 1, 2, 3
+    for (double r in [ 0.5, 1, 2, 3 ]) {
+      // _range is size of screen in nm, so radius is screen.width / _range * r
+      var wx = size.width / _range *r;
+      canvas.drawCircle(c, wx, usPaint);
+      TextSpan span = new TextSpan(
+          style: TextStyle(color: Colors.blue[800]),
+          text: r.toString()
+      );
+      TextPainter tp = TextPainter(text: span, textDirection: TextDirection.ltr);
+      tp.layout();
+
+      tp.paint(canvas, Offset(c.dx+wx*.707, c.dy-wx*.707));
+
+    }
 
     // and each of them
     for (var b in them) {
@@ -745,7 +765,7 @@ class _CommsSettingsState extends State<CommsSettings> {
   void initState() {
     super.initState();
     _hc.text = widget._prefs.host;
-    _pc.text = widget._prefs.host;
+    _pc.text = widget._prefs.port.toString();
   }
   String get host => _hc.text..trim();
   int get port => int.parse(_pc.text..trim());
